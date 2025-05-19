@@ -1,12 +1,12 @@
-import json
 import sys
-
-from PySide6.QtCore import Qt, Signal
+import json # Import the json module
+import os   # Import the os module
 from PySide6.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QComboBox,
-    QSlider, QPushButton, QVBoxLayout, QFormLayout
+    QSlider, QPushButton, QVBoxLayout, QHBoxLayout, QFormLayout,
+    QFrame, QScrollArea # Import QScrollArea
 )
-
+from PySide6.QtCore import Qt, Signal
 
 class ModernSlider(QWidget):
     """Custom Widget for a modern-looking slider with label."""
@@ -56,8 +56,10 @@ class ModernSlider(QWidget):
                 border-radius: 4px;
             }
         """)
+        # Connect the valueChanged signal to the update_label method
         self.slider.valueChanged.connect(self.update_label)
-        self.slider.valueChanged.connect(self.valueChanged.emit) # Emit the signal
+        # Connect the valueChanged signal to emit the custom signal
+        self.slider.valueChanged.connect(self.valueChanged.emit)
 
         self.layout.addWidget(self.value_label)
         self.layout.addWidget(self.slider)
@@ -65,9 +67,11 @@ class ModernSlider(QWidget):
         self.setLayout(self.layout)
 
     def update_label(self, value):
+        """Updates the label text to show the current slider value."""
         self.value_label.setText(f"{self.label_text}: {value}")
 
     def value(self):
+        """Returns the current value of the slider."""
         return self.slider.value()
 
 
@@ -75,12 +79,21 @@ class DronePortConfig(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Drone Port Configuration")
-        # Set a fixed size for a mobile-like feel, or use minimumSizeHint
-        # self.setFixedSize(400, 700) # Example size, adjust as needed
+        # Removed fixed size to allow scrolling
+        self.setFixedSize(400, 700)
         self.setStyleSheet("background-color: #1e1e2f; color: #ffffff; font-family: 'Segoe UI';")
 
-        # Main Layout
-        self.main_layout = QVBoxLayout()
+        # --- Create Scroll Area ---
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True) # Allow the widget inside to resize
+        self.scroll_area.setStyleSheet("border: none;") # Optional: Remove border around scroll area
+
+        # --- Create a container widget for the scrollable content ---
+        self.container_widget = QWidget()
+        self.scroll_area.setWidget(self.container_widget)
+
+        # Main Layout for the container widget
+        self.main_layout = QVBoxLayout(self.container_widget) # Set layout for the container widget
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(15) # Increased spacing for mobile feel
 
@@ -113,6 +126,9 @@ class DronePortConfig(QWidget):
         self.dimensions_entry = self._create_styled_entry()
         self.form_layout.addRow("Dimensions (cm³):", self.dimensions_entry)
 
+        self.cargo_combo = self._create_styled_combobox(["No", "Low Weight", "High Weight"])
+        self.form_layout.addRow("Cargo Capacity:", self.cargo_combo)
+
         self.transmission_combo = self._create_styled_combobox(["No Transmission", "Slow", "Average", "High"])
         self.form_layout.addRow("Data Transmission:", self.transmission_combo)
 
@@ -128,7 +144,7 @@ class DronePortConfig(QWidget):
         self.charging_entry = self._create_styled_entry()
         self.form_layout.addRow("Charging Time (min):", self.charging_entry)
 
-        # Add the form layout to the main layout
+        # Add the form layout to the main layout of the container widget
         self.main_layout.addLayout(self.form_layout)
 
         # --- Noise Level Slider ---
@@ -162,7 +178,11 @@ class DronePortConfig(QWidget):
         self.submit_button.clicked.connect(self.submit_form)
         self.main_layout.addWidget(self.submit_button, alignment=Qt.AlignCenter) # Center the button
 
-        self.setLayout(self.main_layout)
+        # Set the scroll area as the main layout for the window
+        self.window_layout = QVBoxLayout(self)
+        self.window_layout.addWidget(self.scroll_area)
+        self.window_layout.setContentsMargins(0, 0, 0, 0) # Remove margins around the scroll area
+
 
     def _create_styled_entry(self):
         """Helper to create consistently styled QLineEdit."""
@@ -228,6 +248,7 @@ class DronePortConfig(QWidget):
         charging_time = self.charging_entry.text()
         noise_level = self.noise_slider_widget.value() # Get value from custom widget
         night_vision = self.night_combo.currentText()
+        cargo = self.cargo_combo.currentText()
 
         # Print the values (you can replace this with your backend logic)
         print("Port Size:", port_size)
@@ -241,6 +262,8 @@ class DronePortConfig(QWidget):
         print("Air/Water Sensors:", air_water_sensors)
         print("Charging Time:", charging_time)
         print("Noise Level:", noise_level)
+        print("Night Vision:", night_vision) # Added print for Night Vision
+
 
         # Map Port Size text to numerical value
         port_size_map = {
@@ -254,27 +277,28 @@ class DronePortConfig(QWidget):
             "Low": "480p",
             "Average": "720p",
             "High": "1080p",
-            "Very High": "4k"
+            "Very High": "4K" # Corrected "4k" to "4K" for consistency
         }
         # Get the numerical value, default to 0 if text is not found (shouldn't happen with combobox)
         port_size_numerical = port_size_map.get(port_size, 0)
-        camera_performance_numerical = resolution_map.get(camera_performance, 0)
+        camera_performance_mapped = resolution_map.get(camera_performance, "480p") # Default to "480p"
 
 
         # Collect data into a dictionary
         user_input_from_ui = {
-            "Port Size": port_size_numerical,
+            "Port Size": port_size_numerical, # Use the numerical value
             "Port Location": port_location,
             "Budget (€)": budget,
-            "Camera Performance": camera_performance_numerical,
+            "Camera Performance": camera_performance_mapped, # Use the mapped value
             "Battery Life (min)": battery_life,
-            "Dimensions (cm³)": dimensions,
+            "Dimensions (cm³)": dimensions, # Check this key name, might need to match backend exactly
             "Data Transmission": data_transmission,
             "Storage (GB)": storage,
             "Air/Water Sensors": air_water_sensors,
             "Charging Time (min)": charging_time,
             "Noise level": noise_level,
-            "Night Vision": night_vision
+            "Night Vision": night_vision, # Include Night Vision in the dictionary
+            "Cargo": cargo
             # Add other fields from the UI here if you add them later
         }
 
@@ -292,6 +316,11 @@ class DronePortConfig(QWidget):
             print(f"Error writing data to JSON file: {e}")
             # Optional: Add an error message box for the user
             # QMessageBox.critical(self, "Error", f"Failed to save configuration: {e}")
+
+        # Remove the direct call to the backend here. The backend will read the file.
+        # The backend script (drone_selector.py) should be run separately
+        # after the user clicks submit in the UI.
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
