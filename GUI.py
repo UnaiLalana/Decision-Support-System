@@ -17,6 +17,11 @@ def submit():
 
 # --- Setup ---
 root = tk.Tk()
+try:
+    from ctypes import windll
+    windll.shcore.SetProcessDpiAwareness(1)  # Per Windows: scala correttamente l'interfaccia
+except:
+    pass
 root.title("Drone Port Configuration")
 root.geometry("520x850")
 root.configure(bg="#0d1b2a")
