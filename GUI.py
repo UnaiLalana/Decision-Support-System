@@ -94,8 +94,8 @@ class DronePortConfig(QWidget):
 
 
         # --- Widgets ---
-        self.port_size_entry = self._create_styled_entry()
-        self.form_layout.addRow("Port Size:", self.port_size_entry)
+        self.port_size_combo = self._create_styled_combobox(["Small", "Medium", "Big", "Very Big"])
+        self.form_layout.addRow("Port Size:", self.port_size_combo)
 
         self.port_location_combo = self._create_styled_combobox(["Baltic Sea", "West Mediterranean", "Central Mediterranean"])
         self.form_layout.addRow("Port Location:", self.port_location_combo)
@@ -212,7 +212,7 @@ class DronePortConfig(QWidget):
     def submit_form(self):
         print("--- Form Submitted ---")
         # Access the values from the input fields
-        port_size = self.port_size_entry.text()
+        port_size = self.port_size_combo.currentText()
         port_location = self.port_location_combo.currentText()
         budget = self.budget_entry.text()
         camera_performance = self.camera_combo.currentText()
