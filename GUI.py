@@ -1,221 +1,244 @@
-import tkinter as tk
-from tkinter import ttk
+import sys
 
-def submit():
-    """Collects all input values from the GUI widgets."""
-    port_size = entry_port_size.get()
-    port_location = port_location_var.get()
-    budget = entry_budget.get()
-    camera_perf = camera_var.get()
-    battery_life = entry_battery.get()
-    dimensions = entry_dimensions.get()
-    transmission = transmission_var.get()
-    storage = entry_storage.get()
-    # Changed from air_water_var.get() (IntVar for Checkbutton) to air_water_combo_var.get() (StringVar for Combobox)
-    air_water_sensors = air_water_combo_var.get()
-    noise_level = noise_slider.get()
-    charging = entry_charging.get()
-
-    print("--- Form Data ---")
-    print(f"Port Size: {port_size}")
-    print(f"Port Location: {port_location}")
-    print(f"Budget: {budget}")
-    print(f"Camera Performance: {camera_perf}")
-    print(f"Battery Life: {battery_life}")
-    print(f"Dimensions: {dimensions}")
-    print(f"Data Transmission: {transmission}")
-    print(f"Storage: {storage}")
-    print(f"Air/Water Sensors: {air_water_sensors}")
-    print(f"Noise Level: {noise_level}")
-    print(f"Charging Time: {charging}")
-    print("-----------------")
-    # For demonstration, we print data. You might want to process it further.
-    # root.destroy() # You might not want to destroy the window immediately after submit
-                     # unless that's your intended behavior for the final app.
-
-# --- Setup ---
-root = tk.Tk()
-root.title("Drone Port Configuration")
-# Adjust geometry for a 2-column layout. Width needs to be larger.
-root.geometry("1100x800") # Increased width and height further for much larger font/widgets
-try:
-    from ctypes import windll
-    windll.shcore.SetProcessDpiAwareness(1) # For Windows: scales interface correctly
-except Exception:
-    pass
-root.configure(bg="#0d1b2a") # Apply main background color
-
-# --- Color and Style Definitions ---
-label_fg = "#ffffff"       # White text for labels
-bg_color = "#0d1b2a"       # Dark blue/black background
-entry_bg = "#1b263b"       # Slightly lighter blue for input fields
-accent_color = "#415a77"   # Accent color for sliders/buttons
-button_active_bg = "#293d56" # Darker accent for button active state
-
-# --- Configure ttk Styles ---
-style = ttk.Style()
-style.theme_use('clam') # 'clam' is often a good base for custom styling
-
-# Significantly increased font size for most widgets
-base_font = ("Segoe UI", 18) # FURTHER INCREASED font size
-button_font = ("Segoe UI", 18, "bold") # Increased font size for button
-
-# General style for all Ttk widgets to match the dark theme
-style.configure('.', background=bg_color, foreground=label_fg, font=base_font)
-
-# Style for Labels
-style.configure('TLabel', background=bg_color, foreground=label_fg)
-
-# Style for Entries
-style.configure('TEntry', fieldbackground=entry_bg, foreground=label_fg, borderwidth=1, relief="flat", font=("Helvetica", 18))
-style.map('TEntry',
-    fieldbackground=[('focus', accent_color)],
-    foreground=[('focus', label_fg)])
-
-# Style for Combobox
-# The font for text inside dropdown list is affected by 'TCombobox' style itself.
-style.configure('TCombobox', fieldbackground=entry_bg, foreground=label_fg, selectbackground=entry_bg,
-                selectforeground=label_fg, borderwidth=1, relief="flat", arrowcolor=label_fg, font=("Helvetica", 18))
-style.map('TCombobox',
-    fieldbackground=[('readonly', entry_bg), ('focus', accent_color)],
-    selectbackground=[('readonly', accent_color), ('focus', accent_color)],
-    selectforeground=[('readonly', label_fg), ('focus', label_fg)])
-
-# Important: To control the font of the dropdown *list items*, sometimes a specific style is needed.
-# This often uses the element option for the TCombobox.
-# 'TCombobox.TListbox' is a common internal element for the dropdown list.
-# This might not always work directly if the theme doesn't expose it easily.
-# If this doesn't visually change the list, it's a theme limitation for this element.
-style.configure('TCombobox.TListbox', font=base_font, background=entry_bg, foreground=label_fg,
-                selectbackground=accent_color, selectforeground=label_fg)
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QLabel, QLineEdit, QComboBox,
+    QSlider, QPushButton, QVBoxLayout, QFormLayout
+)
 
 
-# Style for Scale (Slider - Noise Level)
-style.configure('Horizontal.TScale', background=bg_color, foreground=label_fg,
-                troughcolor=entry_bg, sliderrelief="flat", sliderthickness=35) # Increased slider thickness further
-style.map('Horizontal.TScale',
-    background=[('active', bg_color)],
-    foreground=[('active', label_fg)],
-    troughcolor=[('active', accent_color)],
-    slidercolor=[('active', label_fg)])
+class ModernSlider(QWidget):
+    """Custom Widget for a modern-looking slider with label."""
+    valueChanged = Signal(int)
 
-# Style for Checkbuttons (will be removed, but kept for reference if needed for other places)
-style.configure('TCheckbutton', background=bg_color, foreground=label_fg,
-                indicatorbackground=entry_bg, indicatorforeground=accent_color,
-                focusthickness=0, borderwidth=0, font=base_font)
-style.map('TCheckbutton',
-    background=[('active', bg_color)],
-    foreground=[('active', label_fg)],
-    indicatorbackground=[('selected', accent_color), ('active', entry_bg)])
+    def __init__(self, label_text, min_val, max_val, initial_val, parent=None):
+        super().__init__(parent)
+        self.label_text = label_text
+        self.min_val = min_val
+        self.max_val = max_val
 
+        self.layout = QVBoxLayout()
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(5)
 
-# Style for Buttons
-style.configure('TButton', background=accent_color, foreground=label_fg,
-                font=button_font, borderwidth=0, relief="flat")
-style.map('TButton',
-    background=[('active', button_active_bg)],
-    foreground=[('active', label_fg)])
+        self.value_label = QLabel(f"{self.label_text}: {initial_val}")
+        self.value_label.setAlignment(Qt.AlignCenter)
+        self.value_label.setStyleSheet("color: #ffffff; font-size: 16px; margin-bottom: 5px;")
 
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setMinimum(min_val)
+        self.slider.setMaximum(max_val)
+        self.slider.setValue(initial_val)
+        self.slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                border: 1px solid #4e94f3;
+                height: 8px;
+                background: #2b2b40; /* Default background for the groove */
+                margin: 2px 0;
+                border-radius: 4px;
+            }
+            QSlider::handle:horizontal {
+                background: #4e94f3;
+                border: 1px solid #4e94f3;
+                width: 20px;
+                height: 20px;
+                margin: -6px 0; /* Center the handle vertically */
+                border-radius: 10px;
+            }
+             /* Corrected: Swap add-page and sub-page for left-to-right fill */
+             QSlider::sub-page:horizontal {
+                background: #3a6fd9; /* Color for the filled part (left of handle) */
+                border-radius: 4px;
+            }
+            QSlider::add-page:horizontal {
+                background: #2b2b40; /* Color for the unfilled part (right of handle) */
+                border-radius: 4px;
+            }
+        """)
+        self.slider.valueChanged.connect(self.update_label)
+        self.slider.valueChanged.connect(self.valueChanged.emit) # Emit the signal
 
-# --- Main Content Frame ---
-content_frame = ttk.Frame(root)
-content_frame.pack(fill="both", expand=True, padx=40, pady=30) # Increased padding for the whole frame
+        self.layout.addWidget(self.value_label)
+        self.layout.addWidget(self.slider)
 
-# --- Configure grid columns in content_frame ---
-content_frame.grid_columnconfigure(0, weight=0) # Label for left widget
-content_frame.grid_columnconfigure(1, weight=1) # Left widget
-content_frame.grid_columnconfigure(2, weight=0, minsize=100) # Spacer column, increased minsize for a larger gap
-content_frame.grid_columnconfigure(3, weight=0) # Label for right widget
-content_frame.grid_columnconfigure(4, weight=1) # Right widget
+        self.setLayout(self.layout)
 
+    def update_label(self, value):
+        self.value_label.setText(f"{self.label_text}: {value}")
 
-# --- Layout Helper for Grid ---
-def add_grid_label_input(label_text, widget, row, col_offset):
-    label = ttk.Label(content_frame, text=label_text, font=("Helvetica", 18))
-    label.grid(row=row, column=col_offset, sticky="w", padx=(0, 25), pady=(20, 10)) # Increased pady and right padx for label
-    widget.grid(row=row, column=col_offset + 1, sticky="ew", padx=(25, 0), pady=(20, 10)) # Increased pady and left padx for widget
-
-# --- Widgets ---
-# Define StringVars and IntVars BEFORE they are used in widget creation
-port_location_var = tk.StringVar(value="Baltic Sea", )
-camera_var = tk.StringVar(value="Average")
-transmission_var = tk.StringVar(value="Average")
-# Changed from IntVar for Checkbutton to StringVar for Combobox
-air_water_combo_var = tk.StringVar(value="Yes") # Default value for the new Combobox
-
-current_row = 0
-
-# Port Size
-entry_port_size = ttk.Entry(content_frame)
-add_grid_label_input("Port Size:", entry_port_size, row=current_row, col_offset=0)
-
-# Port Location
-port_locations = ["Baltic Sea", "West Mediterranean", "Central Mediterranean", "Adriatic Sea",
-                  "Great North Sea", "Celtic Sea", "Iberian Cost", "Aegean Sea", "Black Sea"]
-port_location_combobox = ttk.Combobox(content_frame, textvariable=port_location_var, values=port_locations,
-                                     state="readonly", font=("Helvetica", 18))
-port_location_combobox.set(port_locations[0])
-add_grid_label_input("Port Location:", port_location_combobox, row=current_row, col_offset=3)
-current_row += 1
-
-# Budget
-entry_budget = ttk.Entry(content_frame)
-add_grid_label_input("Budget (€):", entry_budget, row=current_row, col_offset=0)
-
-# Camera Performance
-camera_options = ["Low", "Average", "High", "Very High"]
-camera_combobox = ttk.Combobox(content_frame, textvariable=camera_var, values=camera_options,
-                               state="readonly", font=("Helvetica", 18))
-camera_combobox.set(camera_options[1])
-add_grid_label_input("Camera Performance:", camera_combobox, row=current_row, col_offset=3)
-current_row += 1
-
-# Battery Life
-entry_battery = ttk.Entry(content_frame)
-add_grid_label_input("Battery Life (minutes):", entry_battery, row=current_row, col_offset=0)
-
-# Dimensions
-entry_dimensions = ttk.Entry(content_frame)
-add_grid_label_input("Dimensions (cm³):", entry_dimensions, row=current_row, col_offset=3)
-current_row += 1
-
-# Data Transmission
-transmission_options = ["No Transmission", "Slow", "Average", "High"]
-transmission_combobox = ttk.Combobox(content_frame, textvariable=transmission_var, values=transmission_options,
-                                     state="readonly", font=("Helvetica", 18))
-transmission_combobox.set(transmission_options[2])
-add_grid_label_input("Data Transmission:", transmission_combobox, row=current_row, col_offset=0)
-
-# Storage
-entry_storage = ttk.Entry(content_frame)
-add_grid_label_input("Storage (GB):", entry_storage, row=current_row, col_offset=3)
-current_row += 1
-
-# --- Riorganizzazione degli ultimi widget ---
-
-# Row for Air/Water Sensors (now a Combobox) and Charging Time
-# Left: Air/Water Sensors (Combobox)
-air_water_options = ["Yes", "No"]
-air_water_sensor_combobox = ttk.Combobox(content_frame, textvariable=air_water_combo_var, values=air_water_options,
-                                         state="readonly", font=("Helvetica", 18))
-air_water_sensor_combobox.set(air_water_options[1]) # Default to "No"
-add_grid_label_input("Air/Water Sensors:", air_water_sensor_combobox, row=current_row, col_offset=0)
+    def value(self):
+        return self.slider.value()
 
 
-# Right: Charging Time
-entry_charging = ttk.Entry(content_frame)
-add_grid_label_input("Charging Time (min):", entry_charging, row=current_row, col_offset=3)
-current_row += 1
+class DronePortConfig(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Drone Port Configuration")
+        # Set a fixed size for a mobile-like feel, or use minimumSizeHint
+        self.setFixedSize(400, 700) # Example size, adjust as needed
+        self.setStyleSheet("background-color: #1e1e2f; color: #ffffff; font-family: 'Segoe UI';")
 
-# Noise Level (Slider: Spans all columns for better visual width, as sliders typically need more space)
-ttk.Label(content_frame, text="Noise Level (dB):").grid(row=current_row, column=0, columnspan=5, sticky="w", padx=20, pady=(30, 0)) # Increased pady for separation
-noise_slider = ttk.Scale(content_frame, from_=30, to=100, orient="horizontal")
-noise_slider.grid(row=current_row + 1, column=0, columnspan=5, sticky="ew", padx=20, pady=10)
-current_row += 2 # Takes two rows (label + slider)
+        # Main Layout
+        self.main_layout = QVBoxLayout()
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(15) # Increased spacing for mobile feel
+
+        # Form Layout for inputs
+        self.form_layout = QFormLayout()
+        # Using AllNonFixedFieldsGrow as per user's successful fix
+        self.form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        self.form_layout.setRowWrapPolicy(QFormLayout.WrapLongRows)
+        self.form_layout.setLabelAlignment(Qt.AlignLeft)
+        self.form_layout.setVerticalSpacing(15)
+        self.form_layout.setHorizontalSpacing(20)
 
 
-# Submit Button (spans all columns for centering)
-ttk.Button(content_frame, text="Submit", command=submit).grid(
-    row=current_row, column=0, columnspan=5, pady=40) # Increased pady
+        # --- Widgets ---
+        self.port_size_entry = self._create_styled_entry()
+        self.form_layout.addRow("Port Size:", self.port_size_entry)
 
-root.mainloop()
+        self.port_location_combo = self._create_styled_combobox(["Baltic Sea", "West Mediterranean", "Central Mediterranean"])
+        self.form_layout.addRow("Port Location:", self.port_location_combo)
+
+        self.budget_entry = self._create_styled_entry()
+        self.form_layout.addRow("Budget (€):", self.budget_entry)
+
+        self.camera_combo = self._create_styled_combobox(["Low", "Average", "High"])
+        self.form_layout.addRow("Camera Performance:", self.camera_combo)
+
+        self.battery_entry = self._create_styled_entry()
+        self.form_layout.addRow("Battery Life (min):", self.battery_entry)
+
+        self.dimensions_entry = self._create_styled_entry()
+        self.form_layout.addRow("Dimensions (cm³):", self.dimensions_entry)
+
+        self.transmission_combo = self._create_styled_combobox(["No Transmission", "Slow", "Average", "High"])
+        self.form_layout.addRow("Data Transmission:", self.transmission_combo)
+
+        self.storage_entry = self._create_styled_entry()
+        self.form_layout.addRow("Storage (GB):", self.storage_entry)
+
+        self.air_water_combo = self._create_styled_combobox(["Yes", "No"])
+        self.form_layout.addRow("Air/Water Sensors:", self.air_water_combo)
+
+        self.charging_entry = self._create_styled_entry()
+        self.form_layout.addRow("Charging Time (min):", self.charging_entry)
+
+        # Add the form layout to the main layout
+        self.main_layout.addLayout(self.form_layout)
+
+        # --- Noise Level Slider ---
+        # Using the custom modern slider widget
+        self.noise_slider_widget = ModernSlider("Noise Level (dB)", 30, 100, 65)
+        self.main_layout.addWidget(self.noise_slider_widget)
+
+        # Add some stretch to push the button to the bottom
+        self.main_layout.addStretch()
+
+        # --- Submit Button ---
+        self.submit_button = QPushButton("Submit")
+        self.submit_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4e94f3;
+                color: #ffffff;
+                padding: 12px 24px;
+                border: none;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 18px;
+                margin-top: 20px;
+            }
+            QPushButton:hover {
+                background-color: #3a6fd9;
+            }
+            QPushButton:pressed {
+                background-color: #2c5cb3;
+            }
+        """)
+        self.submit_button.clicked.connect(self.submit_form)
+        self.main_layout.addWidget(self.submit_button, alignment=Qt.AlignCenter) # Center the button
+
+        self.setLayout(self.main_layout)
+
+    def _create_styled_entry(self):
+        """Helper to create consistently styled QLineEdit."""
+        entry = QLineEdit()
+        entry.setStyleSheet("""
+            QLineEdit {
+                background-color: #2b2b40;
+                color: #ffffff;
+                padding: 10px;
+                border: 1px solid #4e94f3;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+            QLineEdit:focus {
+                border: 2px solid #4e94f3;
+            }
+        """)
+        return entry
+
+    def _create_styled_combobox(self, items):
+        """Helper to create consistently styled QComboBox."""
+        combo = QComboBox()
+        combo.addItems(items)
+        combo.setStyleSheet("""
+            QComboBox {
+                background-color: #2b2b40;
+                color: #ffffff;
+                padding: 10px;
+                border: 1px solid #4e94f3;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+            QComboBox::drop-down {
+                border: 0px; /* Remove the default arrow border */
+            }
+            QComboBox::down-arrow {
+                image: url(down_arrow.png); /* You might need a custom arrow image */
+                /* Or use a font icon if available */
+            }
+             QComboBox:focus {
+                border: 2px solid #4e94f3;
+            }
+             QComboBox QAbstractItemView {
+                background-color: #2b2b40;
+                color: #ffffff;
+                selection-background-color: #4e94f3;
+            }
+        """)
+        return combo
+
+    def submit_form(self):
+        print("--- Form Submitted ---")
+        # Access the values from the input fields
+        port_size = self.port_size_entry.text()
+        port_location = self.port_location_combo.currentText()
+        budget = self.budget_entry.text()
+        camera_performance = self.camera_combo.currentText()
+        battery_life = self.battery_entry.text()
+        dimensions = self.dimensions_entry.text()
+        data_transmission = self.transmission_combo.currentText()
+        storage = self.storage_entry.text()
+        air_water_sensors = self.air_water_combo.currentText()
+        charging_time = self.charging_entry.text()
+        noise_level = self.noise_slider_widget.value() # Get value from custom widget
+
+        # Print the values (you can replace this with your backend logic)
+        print("Port Size:", port_size)
+        print("Port Location:", port_location)
+        print("Budget:", budget)
+        print("Camera Performance:", camera_performance)
+        print("Battery Life:", battery_life)
+        print("Dimensions:", dimensions)
+        print("Data Transmission:", data_transmission)
+        print("Storage:", storage)
+        print("Air/Water Sensors:", air_water_sensors)
+        print("Charging Time:", charging_time)
+        print("Noise Level:", noise_level)
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    drone_port_config = DronePortConfig()
+    drone_port_config.show()
+    sys.exit(app.exec())
