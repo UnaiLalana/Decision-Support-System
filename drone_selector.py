@@ -34,38 +34,43 @@ def preprocess_data(df):
     df_processed = df.copy()
 
     # Encode Camera Quality ordinally
-    quality_map = {"480p": 1, "720p": 2, "1080p": 3, "4K": 4, "6K": 4}
+    quality_map = {"480p": 1, "720p": 2, "1080p": 3, "4K": 4, "6K": 5}
     df_processed["Camera Quality"] = df_processed["Camera Quality"].map(quality_map)
 
-    # Encode Class ID and GPS with simple numeric mapping
-    class_id_map = {"C0": 0, "C1": 1, "C2": 2, "C3": 3, "C4": 4, "C5": 5}
-    gps_map = {
-        "GPS": 1,
-        "GPS+GLONASS": 2,
-        "GPS+BeiDou": 3,
-        "GPS+Galileo": 4,
-        "GPS+GLONASS+BeiDou": 5,
-        "GPS+GLONASS+Galileo": 6,
-        "GPS+GLONASS+RTK": 7
-    }
-
-    df_processed["Class Identification Label"] = df_processed["Class Identification Label"].map(class_id_map)
-    df_processed["GPS Supported Systems"] = df_processed["GPS Supported Systems"].map(gps_map)
+    # One-hot encode Class ID and GPS Systems
+    df_processed = pd.get_dummies(df_processed, columns=[
+        "Class Identification Label",
+        "GPS Supported Systems"
+    ])
 
     return df_processed
+
 
 def scale_features(df, user_input):
     scaler = MinMaxScaler()
     df_scaled = df.copy()
 
-    numeric_features = [col for col in df.columns if col not in ["Drone ID"]]
-    df_scaled[numeric_features] = scaler.fit_transform(df_scaled[numeric_features])
+    # Get all features except Drone ID
+    features = [col for col in df.columns if col != "Drone ID"]
 
+    # Process user input
     user_df = pd.DataFrame([user_input])
     user_df = preprocess_data(user_df)
-    user_scaled = scaler.transform(user_df[numeric_features])
+
+    # Add missing columns to user_df (from df)
+    for col in df.columns:
+        if col not in user_df.columns:
+            user_df[col] = 0
+
+    # Ensure same column order
+    user_df = user_df[df.columns]
+
+    # Scale
+    df_scaled[features] = scaler.fit_transform(df_scaled[features])
+    user_scaled = scaler.transform(user_df[features])
 
     return df_scaled, user_scaled[0]
+
 
 def compute_fuzzy_score(drone, user_input, weights):
     score = 0
