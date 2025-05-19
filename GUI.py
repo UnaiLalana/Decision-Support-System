@@ -1,3 +1,4 @@
+import json
 import sys
 
 from PySide6.QtCore import Qt, Signal
@@ -75,7 +76,7 @@ class DronePortConfig(QWidget):
         super().__init__()
         self.setWindowTitle("Drone Port Configuration")
         # Set a fixed size for a mobile-like feel, or use minimumSizeHint
-        self.setFixedSize(400, 700) # Example size, adjust as needed
+        # self.setFixedSize(400, 700) # Example size, adjust as needed
         self.setStyleSheet("background-color: #1e1e2f; color: #ffffff; font-family: 'Segoe UI';")
 
         # Main Layout
@@ -103,7 +104,7 @@ class DronePortConfig(QWidget):
         self.budget_entry = self._create_styled_entry()
         self.form_layout.addRow("Budget (€):", self.budget_entry)
 
-        self.camera_combo = self._create_styled_combobox(["Low", "Average", "High"])
+        self.camera_combo = self._create_styled_combobox(["Low", "Average", "High", "Very High"])
         self.form_layout.addRow("Camera Performance:", self.camera_combo)
 
         self.battery_entry = self._create_styled_entry()
@@ -120,6 +121,9 @@ class DronePortConfig(QWidget):
 
         self.air_water_combo = self._create_styled_combobox(["Yes", "No"])
         self.form_layout.addRow("Air/Water Sensors:", self.air_water_combo)
+
+        self.night_combo = self._create_styled_combobox(["Yes", "No", "Occasionally"])
+        self.form_layout.addRow("Night usage", self.night_combo)
 
         self.charging_entry = self._create_styled_entry()
         self.form_layout.addRow("Charging Time (min):", self.charging_entry)
@@ -223,6 +227,7 @@ class DronePortConfig(QWidget):
         air_water_sensors = self.air_water_combo.currentText()
         charging_time = self.charging_entry.text()
         noise_level = self.noise_slider_widget.value() # Get value from custom widget
+        night_vision = self.night_combo.currentText()
 
         # Print the values (you can replace this with your backend logic)
         print("Port Size:", port_size)
@@ -236,6 +241,57 @@ class DronePortConfig(QWidget):
         print("Air/Water Sensors:", air_water_sensors)
         print("Charging Time:", charging_time)
         print("Noise Level:", noise_level)
+
+        # Map Port Size text to numerical value
+        port_size_map = {
+            "Small": 1,
+            "Medium": 4,
+            "Big": 8,
+            "Very Big": 15
+        }
+
+        resolution_map = {
+            "Low": "480p",
+            "Average": "720p",
+            "High": "1080p",
+            "Very High": "4k"
+        }
+        # Get the numerical value, default to 0 if text is not found (shouldn't happen with combobox)
+        port_size_numerical = port_size_map.get(port_size, 0)
+        camera_performance_numerical = resolution_map.get(camera_performance, 0)
+
+
+        # Collect data into a dictionary
+        user_input_from_ui = {
+            "Port Size": port_size_numerical,
+            "Port Location": port_location,
+            "Budget (€)": budget,
+            "Camera Performance": camera_performance_numerical,
+            "Battery Life (min)": battery_life,
+            "Dimensions (cm³)": dimensions,
+            "Data Transmission": data_transmission,
+            "Storage (GB)": storage,
+            "Air/Water Sensors": air_water_sensors,
+            "Charging Time (min)": charging_time,
+            "Noise level": noise_level,
+            "Night Vision": night_vision
+            # Add other fields from the UI here if you add them later
+        }
+
+        # Define the path for the JSON file
+        json_file_path = "user_input.json"
+
+        # Write the dictionary to a JSON file
+        try:
+            with open(json_file_path, 'w') as f:
+                json.dump(user_input_from_ui, f, indent=4)
+            print(f"Data successfully written to {json_file_path}")
+            # Optional: Add a success message box for the user
+            # QMessageBox.information(self, "Success", "Configuration saved. You can now run the backend script.")
+        except Exception as e:
+            print(f"Error writing data to JSON file: {e}")
+            # Optional: Add an error message box for the user
+            # QMessageBox.critical(self, "Error", f"Failed to save configuration: {e}")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
