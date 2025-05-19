@@ -43,8 +43,8 @@ port_location_dropdown = tk.OptionMenu(root, port_location_var, *port_locations)
 port_location_dropdown.config(bg=entry_bg, fg=label_fg, activebackground=accent_color, highlightbackground=entry_bg)
 add_label_input("Port Location:", port_location_dropdown)
 
-tk.Label(root, text="Budget (Low to High):", fg=label_fg, bg=bg_color).pack(anchor="w", padx=20, pady=(10, 0))
-budget_slider = tk.Scale(root, from_=0, to=100, orient="horizontal", bg=entry_bg, fg=label_fg,
+tk.Label(root, text="Budget (€):", fg=label_fg, bg=bg_color).pack(anchor="w", padx=20, pady=(10, 0))
+budget_slider = tk.Scale(root, from_=0, to=20000, orient="horizontal", bg=entry_bg, fg=label_fg,
                          troughcolor=accent_color, highlightthickness=0)
 budget_slider.pack(fill="x", padx=20, pady=5)
 
