@@ -126,6 +126,7 @@ def get_top_drones(user_input_gui, weights_gui, k=3):
         top_drones.append({
             "Drone ID": drone_row["Drone ID"],
             "Total Score (%)": round(total_score, 2),
+            "Price": drone_row["Budgets options"],
             "Explanation": explanations
         })
 
