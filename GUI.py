@@ -304,7 +304,12 @@ class DronePortConfig(QWidget):
             # Add weights for other features if fuzzy logic is extended
         }
 
-        drone_selector.get_top_drones(transform_user_input(user_input_from_ui), weights_gui)
+        res = drone_selector.get_top_drones(transform_user_input(user_input_from_ui), weights_gui)
+        for drone in res:
+            print(f"\nDrone ID: {drone['Drone ID']}")
+            print(f"Total Score: {drone['Total Score (%)']}%")
+            for expl in drone["Explanation"]:
+                print("-", expl)
 
 
 def transform_user_input(user_input_gui):
@@ -352,6 +357,8 @@ def transform_user_input(user_input_gui):
         "GPS Supported Systems": "GPS+Galileo",
         "Automated Path Finding": 1 if int(user_input_gui["Budget (€)"]) >= 8000 else 0,
     }
+
+    return user_input
 
 def get_drone_class_from_volume(volume_cm3: float) -> str:
         """
