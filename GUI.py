@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QComboBox,
     QSlider, QPushButton, QVBoxLayout, QFormLayout,
-    QScrollArea  # Import QScrollArea
+    QScrollArea, QMessageBox, QFrame  # Import QScrollArea
 )
 
 import drone_selector
@@ -310,6 +310,12 @@ class DronePortConfig(QWidget):
             print(f"Total Score: {drone['Total Score (%)']}%")
             for expl in drone["Explanation"]:
                 print("-", expl)
+        if res:
+            # Create and show the results window
+            self.results_window = ResultsWindow(res)  # Pass self as parent
+            self.results_window.show()
+        else:
+            QMessageBox.information(self, "No Results", "No drones were recommended based on your criteria.")
 
 
 def transform_user_input(user_input_gui):
@@ -391,6 +397,111 @@ def get_drone_class_from_volume(volume_cm3: float) -> str:
             return "C3"
         else:  # Greater than 16250 cm³ (up to 20000 and beyond)
             return "C4"
+
+
+
+class ResultsWindow(QWidget):
+    """A new window to display the top drone recommendations."""
+    def __init__(self, top_drones, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Drone Recommendation Results")
+        self.setFixedSize(500, 700) # Slightly larger for results
+        self.setStyleSheet("background-color: #1e1e2f; color: #ffffff; font-family: 'Segoe UI';")
+
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(20)
+
+        title_label = QLabel("Top Drone Recommendations")
+        title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #4e94f3;")
+        title_label.setAlignment(Qt.AlignCenter)
+        self.main_layout.addWidget(title_label)
+
+        if not top_drones:
+            no_results_label = QLabel("No drones found matching your criteria.")
+            no_results_label.setStyleSheet("font-size: 18px; color: #ff6b6b;")
+            no_results_label.setAlignment(Qt.AlignCenter)
+            self.main_layout.addWidget(no_results_label)
+        else:
+            # Create a scroll area for the results if there are many
+            results_scroll_area = QScrollArea(self)
+            results_scroll_area.setWidgetResizable(True)
+            results_scroll_area.setStyleSheet("border: none;")
+
+            results_container = QWidget()
+            results_layout = QVBoxLayout(results_container)
+            results_layout.setSpacing(15)
+            results_layout.setContentsMargins(0, 0, 0, 0)
+
+            for i, drone in enumerate(top_drones):
+                drone_frame = QFrame()
+                drone_frame.setStyleSheet("""
+                    QFrame {
+                        background-color: #2b2b40;
+                        border: 1px solid #4e94f3;
+                        border-radius: 8px;
+                        padding: 15px;
+                    }
+                """)
+                drone_layout = QVBoxLayout(drone_frame)
+                drone_layout.setSpacing(5)
+
+                # Rank
+                rank_label = QLabel(f"Rank {i + 1}")
+                rank_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #ffffff;")
+                drone_layout.addWidget(rank_label)
+
+                # Drone ID
+                id_label = QLabel(f"Drone ID: <span style='color: #4e94f3; font-weight: bold;'>{drone.get('Drone ID', 'N/A')}</span>")
+                id_label.setStyleSheet("font-size: 16px;")
+                drone_layout.addWidget(id_label)
+
+                # Total Score
+                score_label = QLabel(f"Total Score: <span style='color: #a8dadc; font-weight: bold;'>{drone.get('Total Score (%)', 'N/A')}%</span>")
+                score_label.setStyleSheet("font-size: 16px;")
+                drone_layout.addWidget(score_label)
+
+                # Explanations
+                explanations = drone.get('Explanation', [])
+                if explanations:
+                    explanation_title = QLabel("Explanation:")
+                    explanation_title.setStyleSheet("font-size: 14px; font-weight: bold; margin-top: 5px;")
+                    drone_layout.addWidget(explanation_title)
+
+                    for expl in explanations:
+                        expl_label = QLabel(f"- {expl}")
+                        expl_label.setStyleSheet("font-size: 14px;")
+                        drone_layout.addWidget(expl_label)
+                else:
+                    no_expl_label = QLabel("No specific explanations provided.")
+                    no_expl_label.setStyleSheet("font-size: 14px; font-style: italic;")
+                    drone_layout.addWidget(no_expl_label)
+
+                results_layout.addWidget(drone_frame)
+
+            results_scroll_area.setWidget(results_container)
+            self.main_layout.addWidget(results_scroll_area)
+
+        # Close button
+        close_button = QPushButton("Close")
+        close_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff6b6b;
+                color: #ffffff;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+                font-size: 16px;
+                margin-top: 20px;
+            }
+            QPushButton:hover {
+                background-color: #e63946;
+            }
+        """)
+        close_button.clicked.connect(self.close)
+        self.main_layout.addWidget(close_button, alignment=Qt.AlignCenter)
+
 
 
 if __name__ == '__main__':
