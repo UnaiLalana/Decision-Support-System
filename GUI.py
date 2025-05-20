@@ -433,6 +433,7 @@ class ResultsWindow(QWidget):
             results_layout.setSpacing(15)
             results_layout.setContentsMargins(0, 0, 0, 0)
 
+
             for i, drone in enumerate(top_drones):
                 drone_frame = QFrame()
                 drone_frame.setStyleSheet("""
@@ -460,6 +461,11 @@ class ResultsWindow(QWidget):
                 score_label = QLabel(f"Total Score: <span style='color: #a8dadc; font-weight: bold;'>{drone.get('Total Score (%)', 'N/A')}%</span>")
                 score_label.setStyleSheet("font-size: 16px;")
                 drone_layout.addWidget(score_label)
+
+                # NEW: Price
+                price_label = QLabel(f"Price: <span style='color: #66bb6a; font-weight: bold;'>€{drone.get('Price', 'N/A'):.2f}</span>")
+                price_label.setStyleSheet("font-size: 16px;")
+                drone_layout.addWidget(price_label)
 
                 # Explanations
                 explanations = drone.get('Explanation', [])
