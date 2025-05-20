@@ -96,10 +96,12 @@ def compute_fuzzy_score(drone, user_input, weights):
     # Add more fuzzy evaluations here if needed
     return score, explanations
 
-def get_top_drones(user_input, weights, k=3):
+
+
+def get_top_drones(user_input_gui, weights_gui, k=3):
     df = pd.read_csv("drones_dataset.csv")
     df_processed = preprocess_data(df)
-    df_scaled, user_scaled = scale_features(df_processed, user_input)
+    df_scaled, user_scaled = scale_features(df_processed, user_input_gui)
 
     # Fit Nearest Neighbors model
     features = [col for col in df_scaled.columns if col not in ["Drone ID"]]
@@ -108,13 +110,12 @@ def get_top_drones(user_input, weights, k=3):
     user_df_scaled = pd.DataFrame([user_scaled], columns=features)
     distances, indices = model.kneighbors(user_df_scaled)
 
-    top_drones = []
     max_dist = np.linalg.norm(np.ones(len(features)))  # max possible distance in normalized space
 
     top_drones = []
     for dist, idx in zip(distances[0], indices[0]):
         drone_row = df.iloc[idx].copy()
-        fuzzy_score, explanations = compute_fuzzy_score(drone_row, user_input, weights)
+        fuzzy_score, explanations = compute_fuzzy_score(drone_row, user_input_gui, weights_gui)
 
         # Normalize distance score
         norm_dist_score = max(0.0, 1 - dist / max_dist)  # clamp to 0

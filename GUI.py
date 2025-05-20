@@ -1,12 +1,15 @@
 import sys
-import json # Import the json module
-import os   # Import the os module
+
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QComboBox,
-    QSlider, QPushButton, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QFrame, QScrollArea # Import QScrollArea
+    QSlider, QPushButton, QVBoxLayout, QFormLayout,
+    QScrollArea  # Import QScrollArea
 )
-from PySide6.QtCore import Qt, Signal
+
+import drone_selector
+import location
+
 
 class ModernSlider(QWidget):
     """Custom Widget for a modern-looking slider with label."""
@@ -111,7 +114,8 @@ class DronePortConfig(QWidget):
         self.port_size_combo = self._create_styled_combobox(["Small", "Medium", "Big", "Very Big"])
         self.form_layout.addRow("Port Size:", self.port_size_combo)
 
-        self.port_location_combo = self._create_styled_combobox(["Baltic Sea", "West Mediterranean", "Central Mediterranean"])
+        self.port_location_combo = self._create_styled_combobox(["Baltic Sea", "West Mediterranean", "Central Mediterranean", "Adriatic Sea",
+                  "Great North Sea", "Celtic Sea", "Iberian Cost", "Aegean Sea", "Black Sea"])
         self.form_layout.addRow("Port Location:", self.port_location_combo)
 
         self.budget_entry = self._create_styled_entry()
@@ -265,28 +269,21 @@ class DronePortConfig(QWidget):
         print("Night Vision:", night_vision) # Added print for Night Vision
 
 
-        # Map Port Size text to numerical value
-        port_size_map = {
-            "Small": 1,
-            "Medium": 4,
-            "Big": 8,
-            "Very Big": 15
-        }
+
 
         resolution_map = {
             "Low": "480p",
             "Average": "720p",
             "High": "1080p",
-            "Very High": "4K" # Corrected "4k" to "4K" for consistency
+            "Very High": "4K"
         }
         # Get the numerical value, default to 0 if text is not found (shouldn't happen with combobox)
-        port_size_numerical = port_size_map.get(port_size, 0)
         camera_performance_mapped = resolution_map.get(camera_performance, "480p") # Default to "480p"
 
 
         # Collect data into a dictionary
         user_input_from_ui = {
-            "Port Size": port_size_numerical, # Use the numerical value
+            "Port Size": port_size,
             "Port Location": port_location,
             "Budget (€)": budget,
             "Camera Performance": camera_performance_mapped, # Use the mapped value
@@ -302,24 +299,91 @@ class DronePortConfig(QWidget):
             # Add other fields from the UI here if you add them later
         }
 
-        # Define the path for the JSON file
-        json_file_path = "user_input.json"
+        weights_gui = { # Not yet implemented in the GUI
+            "Payload Capacity": 0.7,
+            # Add weights for other features if fuzzy logic is extended
+        }
 
-        # Write the dictionary to a JSON file
+        drone_selector.get_top_drones(transform_user_input(user_input_from_ui), weights_gui)
+
+
+def transform_user_input(user_input_gui):
+    radius_map = {
+        "Small": [1, 150],
+        "Medium": [5, 400],
+        "Big": [7, 600],
+        "Very Big": [10, 800]
+    }
+
+    transmission_map = {
+        "No Transmission": [0, 0],
+        "Slow": [1, 20],
+        "Average": [1, 50],
+        "High": [1, 85]
+    }
+
+    loc = location.get_historical_weather_open_meteo(user_input_gui["Port Location"])
+    wind = loc["average_max_wind_kmh"]
+    temp = loc["average_min_temp_C"]
+    rtt = transmission_map.get(user_input_gui["Data Transmission"])[0]
+    speed = transmission_map.get(user_input_gui["Data Transmission"])[1]
+    user_input = {
+        "Flight Radius": radius_map.get(user_input_gui["Port Size"][0], 0),
+        "Flight height": radius_map.get(user_input_gui["Port Size"][1], 0),
+        "Thermal/Night Camera": 0.0 if user_input_gui["Night Vision"] != "No" else 1.0,
+        "Max wind resistance": wind,
+        "Budgets options": user_input_gui["Budget (€)"],
+        "Camera Quality": user_input_gui["Camera Performance"],
+        "ISO range": 25600 if user_input_gui["Night Vision"] == "Yes" else (
+            6400 if user_input_gui["Night Vision"] == "Occasionally" else 3200),
+        "Battery Life": user_input_gui["Battery Life (min)"],
+        "Payload Capacity": 1 if user_input_gui["Cargo"] == "No" else (
+            10 if user_input_gui["Cargo"] == "Low Weight" else 23),
+        "Dimensions": user_input_gui["Dimensions (cm³)"],
+        "Real-time data transmission": rtt,
+        "Transmission bandwidth": speed,
+        "Data storage ability": user_input_gui["Storage (GB)"],
+        "Air/Water quality sensor availability": 1 if user_input_gui["Air/Water Sensors"] == "Yes" else 0,
+        "Noise level": user_input_gui["Noise level"],
+        "Operating Temperature": temp,
+        "Class Identification Label": get_drone_class_from_volume(user_input_gui["Dimensions (cm³)"]),
+        "Charging Time": user_input_gui["Charging Time (min)"],
+        "Automatic Landing/Takeoff": 1,
+        "GPS Supported Systems": "GPS+Galileo",
+        "Automated Path Finding": 1 if int(user_input_gui["Budget (€)"]) >= 8000 else 0,
+    }
+
+def get_drone_class_from_volume(volume_cm3: float) -> str:
+        """
+        Determines the drone class (C0 to C4) based on its volume in cm³.
+
+        Args:
+            volume_cm3 (float): The volume of the drone in cubic centimeters.
+
+        Returns:
+            str: The corresponding drone class (e.g., "C0", "C1", "C2", "C3", "C4").
+                 Returns "Unknown" if the input volume is not a valid number.
+        """
         try:
-            with open(json_file_path, 'w') as f:
-                json.dump(user_input_from_ui, f, indent=4)
-            print(f"Data successfully written to {json_file_path}")
-            # Optional: Add a success message box for the user
-            # QMessageBox.information(self, "Success", "Configuration saved. You can now run the backend script.")
-        except Exception as e:
-            print(f"Error writing data to JSON file: {e}")
-            # Optional: Add an error message box for the user
-            # QMessageBox.critical(self, "Error", f"Failed to save configuration: {e}")
+            volume = float(volume_cm3)
+        except (ValueError, TypeError):
+            print(f"Warning: Invalid volume input '{volume_cm3}'. Returning 'Unknown'.")
+            return "Unknown"
 
-        # Remove the direct call to the backend here. The backend will read the file.
-        # The backend script (drone_selector.py) should be run separately
-        # after the user clicks submit in the UI.
+        if volume <= 0:
+            # Drones must have a positive volume. Assign to smallest class or handle as error.
+            # For this function, we'll assign to C0 as the smallest possible class.
+            return "C0"
+        elif volume <= 5000:  # Up to 5000 cm³
+            return "C0"
+        elif volume <= 8750:  # From 5001 cm³ to 8750 cm³
+            return "C1"
+        elif volume <= 12500:  # From 8751 cm³ to 12500 cm³
+            return "C2"
+        elif volume <= 16250:  # From 12501 cm³ to 16250 cm³
+            return "C3"
+        else:  # Greater than 16250 cm³ (up to 20000 and beyond)
+            return "C4"
 
 
 if __name__ == '__main__':
