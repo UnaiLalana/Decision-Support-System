@@ -236,7 +236,7 @@ def compute_detailed_scores_and_explanations(drone_row, user_input_gui, weights_
 
 
 # --- Main Drone Selection Function ---
-def get_top_drones(user_input_gui, weights_gui, k=3, W_knn=0.6, W_detailed=0.4):
+def get_top_drones(user_input_gui, weights_gui, k=20, W_knn=0.6, W_detailed=0.4):
     df = pd.read_csv("drones_dataset.csv")
 
     for col in df.select_dtypes(include=np.number).columns:  # Round numeric columns
@@ -259,7 +259,7 @@ def get_top_drones(user_input_gui, weights_gui, k=3, W_knn=0.6, W_detailed=0.4):
     df_weighted_scaled_features = df_weighted_scaled_features.fillna(0)
     user_weighted_scaled_vector = np.nan_to_num(user_weighted_scaled_vector)
 
-    model = NearestNeighbors(n_neighbors=min(k, len(df_weighted_scaled_features)), metric="euclidean")
+    model = NearestNeighbors(n_neighbors=k, metric="euclidean")
     model.fit(df_weighted_scaled_features.values)  # Pass .values to avoid feature name warnings if df has names
 
     distances, indices = model.kneighbors(user_weighted_scaled_vector.reshape(1, -1))
@@ -317,7 +317,8 @@ def get_top_drones(user_input_gui, weights_gui, k=3, W_knn=0.6, W_detailed=0.4):
         })
 
     top_drones_data.sort(key=lambda x: x["Total Score (%)"], reverse=True)
-    return top_drones_data
+    return top_drones_data[:3] # only top 3 drones
+
 
 
 if __name__ == "__main__":
