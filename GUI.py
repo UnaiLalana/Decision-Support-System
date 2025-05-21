@@ -1,3 +1,4 @@
+import os
 import sys
 
 from PySide6.QtCore import Qt, Signal
@@ -237,6 +238,49 @@ class DronePortConfig(QWidget):
         """)
         return combo
 
+    def load_weights_from_file(self):
+        filepath = "weights.conf"
+        weights = {}
+        if not os.path.exists(filepath):
+            print(f"Error: Weight configuration file '{filepath}' not found.")
+            print("Please create the file with the correct weights.")
+            # Return an empty dict or raise an error, depending on desired behavior
+            # For now, let's return a default (empty) dict to avoid crashing
+            return {}
+
+        with open(filepath, 'r') as f:
+            # Skip comment lines
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+
+                try:
+                    # Expecting format: "Criterion Name": Value
+                    # Find the first colon to split key and value
+                    parts = line.split(':', 1)
+                    if len(parts) != 2:
+                        print(f"Warning: Skipping malformed line in weights file: {line}")
+                        continue
+
+                    key_str = parts[0].strip()
+                    value_str = parts[1].strip()
+
+                    # Remove quotes from the key string if present
+                    if key_str.startswith('"') and key_str.endswith('"'):
+                        key = key_str[1:-1]
+                    else:
+                        key = key_str  # Or raise an error if quotes are mandatory
+
+                    weight = float(value_str)
+                    weights[key] = weight
+                except ValueError:
+                    print(f"Warning: Skipping line with invalid weight value: {line}")
+                except Exception as e:
+                    print(f"An unexpected error occurred while parsing line: {line} - {e}")
+        return weights
+
+
     def submit_form(self):
         print("--- Form Submitted ---")
         # Access the values from the input fields
@@ -296,13 +340,9 @@ class DronePortConfig(QWidget):
             "Noise level": noise_level,
             "Night Vision": night_vision, # Include Night Vision in the dictionary
             "Cargo": cargo
-            # Add other fields from the UI here if you add them later
         }
 
-        weights_gui = { # Not yet implemented in the GUI
-            "Payload Capacity": 0.7,
-            # Add weights for other features if fuzzy logic is extended
-        }
+        weights_gui = self.load_weights_from_file()
 
         res = drone_selector.get_top_drones(transform_user_input(user_input_from_ui), weights_gui)
         for drone in res:
@@ -338,9 +378,12 @@ def transform_user_input(user_input_gui):
     temp = loc["average_min_temp_C"]
     rtt = transmission_map.get(user_input_gui["Data Transmission"])[0]
     speed = transmission_map.get(user_input_gui["Data Transmission"])[1]
+    radAndHeigh = radius_map.get(user_input_gui["Port Size"], -1)
+    radius = radAndHeigh[0]
+    height = radAndHeigh[1]
     user_input = {
-        "Flight Radius": radius_map.get(user_input_gui["Port Size"][0], 0),
-        "Flight height": radius_map.get(user_input_gui["Port Size"][1], 0),
+        "Flight Radius": radius,
+        "Flight height": height,
         "Thermal/Night Camera": 0.0 if user_input_gui["Night Vision"] != "No" else 1.0,
         "Max wind resistance": wind,
         "Budgets options": user_input_gui["Budget (€)"],
@@ -348,7 +391,7 @@ def transform_user_input(user_input_gui):
         "ISO range": 25600 if user_input_gui["Night Vision"] == "Yes" else (
             6400 if user_input_gui["Night Vision"] == "Occasionally" else 3200),
         "Battery Life": user_input_gui["Battery Life (min)"],
-        "Payload Capacity": 1 if user_input_gui["Cargo"] == "No" else (
+        "Payload Capacity": 0 if user_input_gui["Cargo"] == "No" else (
             10 if user_input_gui["Cargo"] == "Low Weight" else 23),
         "Dimensions": user_input_gui["Dimensions (cm³)"],
         "Real-time data transmission": rtt,
@@ -399,13 +442,14 @@ def get_drone_class_from_volume(volume_cm3: float) -> str:
             return "C4"
 
 
-
 class ResultsWindow(QWidget):
-    """A new window to display the top drone recommendations."""
+    """A new window to display the top drone recommendations with collapsible explanations."""
+
     def __init__(self, top_drones, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Drone Recommendation Results")
-        self.setFixedSize(500, 700) # Slightly larger for results
+        self.setMinimumSize(700, 500)  # Use minimum size, let layout expand
+        self.resize(900, 700)  # Set a good initial size
         self.setStyleSheet("background-color: #1e1e2f; color: #ffffff; font-family: 'Segoe UI';")
 
         self.main_layout = QVBoxLayout(self)
@@ -422,17 +466,17 @@ class ResultsWindow(QWidget):
             no_results_label.setStyleSheet("font-size: 18px; color: #ff6b6b;")
             no_results_label.setAlignment(Qt.AlignCenter)
             self.main_layout.addWidget(no_results_label)
+            self.main_layout.addStretch()  # Push content up if no results
         else:
-            # Create a scroll area for the results if there are many
             results_scroll_area = QScrollArea(self)
             results_scroll_area.setWidgetResizable(True)
-            results_scroll_area.setStyleSheet("border: none;")
+            results_scroll_area.setStyleSheet(
+                "QScrollArea { border: none; } QScrollBar:vertical { border: none; background: #2b2b40; width: 10px; margin: 0px 0px 0px 0px; } QScrollBar::handle:vertical { background: #4e94f3; min-height: 20px; border-radius: 5px; } QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { border: none; background: none; height: 0px; } QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { background: none; } QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }")
 
             results_container = QWidget()
             results_layout = QVBoxLayout(results_container)
             results_layout.setSpacing(15)
             results_layout.setContentsMargins(0, 0, 0, 0)
-
 
             for i, drone in enumerate(top_drones):
                 drone_frame = QFrame()
@@ -445,69 +489,124 @@ class ResultsWindow(QWidget):
                     }
                 """)
                 drone_layout = QVBoxLayout(drone_frame)
-                drone_layout.setSpacing(5)
+                drone_layout.setSpacing(8)  # Slightly reduced spacing within a drone card
 
-                # Rank
                 rank_label = QLabel(f"Rank {i + 1}")
                 rank_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #ffffff;")
                 drone_layout.addWidget(rank_label)
 
-                # Drone ID
-                id_label = QLabel(f"Drone ID: <span style='color: #4e94f3; font-weight: bold;'>{drone.get('Drone ID', 'N/A')}</span>")
+                id_label = QLabel(
+                    f"Drone ID: <span style='color: #4e94f3; font-weight: bold;'>{drone.get('Drone ID', 'N/A')}</span>")
                 id_label.setStyleSheet("font-size: 16px;")
+                id_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
                 drone_layout.addWidget(id_label)
 
-                # Total Score
-                score_label = QLabel(f"Total Score: <span style='color: #a8dadc; font-weight: bold;'>{drone.get('Total Score (%)', 'N/A')}%</span>")
+                score_label = QLabel(
+                    f"Total Score: <span style='color: #a8dadc; font-weight: bold;'>{drone.get('Total Score (%)', 'N/A')}%</span>")
                 score_label.setStyleSheet("font-size: 16px;")
                 drone_layout.addWidget(score_label)
 
-                # NEW: Price
-                price_label = QLabel(f"Price: <span style='color: #66bb6a; font-weight: bold;'>€{drone.get('Price', 'N/A'):.2f}</span>")
+                # Display KNN and Detailed scores if available
+                knn_score = drone.get('_knn_score')
+                detailed_score = drone.get('_detailed_score')
+                if knn_score is not None and detailed_score is not None:
+                    partial_scores_label = QLabel(f"(KNN: {knn_score:.2f}, Detailed: {detailed_score:.2f})")
+                    partial_scores_label.setStyleSheet("font-size: 12px; color: #aabbcc;")
+                    drone_layout.addWidget(partial_scores_label)
+
+                price_val = drone.get('Price', 'N/A')
+                price_text = f"€{price_val:.2f}" if isinstance(price_val, (int, float)) else "N/A"
+                price_label = QLabel(f"Price: <span style='color: #66bb6a; font-weight: bold;'>{price_text}</span>")
                 price_label.setStyleSheet("font-size: 16px;")
                 drone_layout.addWidget(price_label)
 
-                # Explanations
+                # --- Collapsible Explanations ---
                 explanations = drone.get('Explanation', [])
                 if explanations:
-                    explanation_title = QLabel("Explanation:")
-                    explanation_title.setStyleSheet("font-size: 14px; font-weight: bold; margin-top: 5px;")
-                    drone_layout.addWidget(explanation_title)
+                    # Toggle Button
+                    explanation_toggle_button = QPushButton("▼ Explanations")
+                    explanation_toggle_button.setCheckable(True)  # Makes it act like a toggle
+                    explanation_toggle_button.setChecked(False)  # Start unchecked (collapsed)
+                    explanation_toggle_button.setStyleSheet("""
+                        QPushButton {
+                            background-color: transparent;
+                            color: #4e94f3;
+                            border: none;
+                            text-align: left;
+                            padding: 5px 0px;
+                            font-size: 14px;
+                            font-weight: bold;
+                        }
+                        QPushButton:hover {
+                            color: #3a6fd9;
+                        }
+                        QPushButton:checked {
+                            /* Optional: different style when expanded */
+                        }
+                    """)
+                    drone_layout.addWidget(explanation_toggle_button)
 
-                    for expl in explanations:
-                        expl_label = QLabel(f"- {expl}")
-                        expl_label.setStyleSheet("font-size: 14px;")
-                        drone_layout.addWidget(expl_label)
+                    # Container for explanation labels
+                    explanations_container = QWidget()
+                    explanations_layout_inner = QVBoxLayout(explanations_container)
+                    explanations_layout_inner.setContentsMargins(15, 5, 0,
+                                                                 5)  # Indent explanations, add top/bottom margin
+                    explanations_layout_inner.setSpacing(3)  # Spacing between explanation lines
+
+                    for expl_text in explanations:
+                        expl_label = QLabel(f"• {expl_text}")  # Using a bullet point
+                        expl_label.setStyleSheet("font-size: 13px; color: #c0c0d0;")  # Slightly dimmer text
+                        expl_label.setWordWrap(True)
+                        expl_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+                        explanations_layout_inner.addWidget(expl_label)
+
+                    explanations_container.setLayout(explanations_layout_inner)
+                    explanations_container.setVisible(False)  # Initially hidden
+                    drone_layout.addWidget(explanations_container)
+
+                    # Connect button to toggle visibility and text
+                    def create_toggle_lambda(button, container):
+                        return lambda checked: (
+                            container.setVisible(checked),
+                            button.setText("▲ Explanations" if checked else "▼ Explanations")
+                        )
+
+                    explanation_toggle_button.toggled.connect(
+                        create_toggle_lambda(explanation_toggle_button, explanations_container))
+
                 else:
                     no_expl_label = QLabel("No specific explanations provided.")
-                    no_expl_label.setStyleSheet("font-size: 14px; font-style: italic;")
+                    no_expl_label.setStyleSheet("font-size: 14px; font-style: italic; color: #888899;")
                     drone_layout.addWidget(no_expl_label)
 
+                drone_layout.addStretch(1)  # Add stretch inside each drone card if needed
                 results_layout.addWidget(drone_frame)
 
+            results_layout.addStretch(1)  # Pushes drone cards to the top if they don't fill the scroll area
             results_scroll_area.setWidget(results_container)
             self.main_layout.addWidget(results_scroll_area)
 
-        # Close button
         close_button = QPushButton("Close")
         close_button.setStyleSheet("""
             QPushButton {
-                background-color: #ff6b6b;
+                background-color: #ff6b6b; /* A more distinct red */
                 color: #ffffff;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
                 font-size: 16px;
-                margin-top: 20px;
+                margin-top: 10px; /* Reduced margin slightly */
             }
             QPushButton:hover {
-                background-color: #e63946;
+                background-color: #e63946; /* Darker red on hover */
+            }
+            QPushButton:pressed {
+                background-color: #d62828; /* Even darker when pressed */
             }
         """)
         close_button.clicked.connect(self.close)
         self.main_layout.addWidget(close_button, alignment=Qt.AlignCenter)
-
 
 
 if __name__ == '__main__':
