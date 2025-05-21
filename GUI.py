@@ -384,7 +384,7 @@ def transform_user_input(user_input_gui):
     user_input = {
         "Flight Radius": radius,
         "Flight height": height,
-        "Thermal/Night Camera": 0.0 if user_input_gui["Night Vision"] != "No" else 1.0,
+        "Thermal/Night Camera": 0.0 if user_input_gui["Night Vision"] == "No" else 1.0,
         "Max wind resistance": wind,
         "Budgets options": user_input_gui["Budget (€)"],
         "Camera Quality": user_input_gui["Camera Performance"],

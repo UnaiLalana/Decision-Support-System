@@ -73,8 +73,10 @@ def get_historical_weather_open_meteo(region):
          return f"Could not find valid min temperature or max wind speed data for region {region}."
 
     # Calculate the average of the daily minimum temperatures and daily maximum wind speeds
-    average_min_temp_C = np.mean(daily_temps_min)
-    average_max_wind_speed_kmh = np.mean(daily_winds_max)
+    daily_temps_min_array = np.array(daily_temps_min, dtype=float)
+    daily_winds_max_array = np.array(daily_winds_max, dtype=float)
+    average_min_temp_C = np.nanmean(daily_temps_min_array)
+    average_max_wind_speed_kmh = np.nanmean(daily_winds_max_array)
 
 
     return {
