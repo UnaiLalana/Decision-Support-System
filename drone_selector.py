@@ -163,8 +163,7 @@ def compute_detailed_scores_and_explanations(drone_row, user_input_gui, weights_
         weight = float(weights_gui["Budgets options"])
 
         fm_budget = fuzzy_membership_budget(np.array([budget_val_drone]))
-        relevance = 0.0
-        drone_category_label = ""
+
 
         # User wants to spend AT MOST budget_val_user
         if budget_val_drone <= budget_val_user:  # Drone is within budget
@@ -348,14 +347,14 @@ if __name__ == "__main__":
 
     weights = {
         "Flight Radius": 1.5, "Flight height": 0.8, "Thermal/Night Camera": 2.0,
-        "Max wind resistance": 1.2, "Budgets options": 2.5, "Camera Quality": 1.8,
-        "ISO range": 0.7, "Battery Life": 2.2, "Payload Capacity": 2.0,
+        "Max wind resistance": 1.2, "Budgets options": 15.0, "Camera Quality": 1.8,
+        "ISO range": 0.7, "Battery Life": 2.5, "Payload Capacity": 1.5,
         "Dimensions": 0.5, "Real-time data transmission": 1.5,
         "Transmission bandwidth": 0.9, "Data storage ability": 1.0,
         "Air/Water quality sensor availability": 1.2, "Noise level": 0.6,
-        "Operating Temperature": 0.7, "Class Identification Label": 1.8,
-        "Charging Time": 0.8, "Automatic Landing/Takeoff": 1.3,
-        "GPS Supported Systems": 1.5, "Automated Path Finding": 1.0
+        "Operating Temperature": 1.5, "Class Identification Label": 1.0,
+        "Charging Time": 0.5, "Automatic Landing/Takeoff": 0.5,
+        "GPS Supported Systems": 0.5, "Automated Path Finding": 0.6
     }
 
     result = get_top_drones(user_input, weights, k=3, W_knn=0.6, W_detailed=0.4)

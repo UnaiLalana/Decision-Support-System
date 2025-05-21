@@ -1,3 +1,4 @@
+import os
 import sys
 
 from PySide6.QtCore import Qt, Signal
@@ -237,6 +238,49 @@ class DronePortConfig(QWidget):
         """)
         return combo
 
+    def load_weights_from_file(self):
+        filepath = "weights.conf"
+        weights = {}
+        if not os.path.exists(filepath):
+            print(f"Error: Weight configuration file '{filepath}' not found.")
+            print("Please create the file with the correct weights.")
+            # Return an empty dict or raise an error, depending on desired behavior
+            # For now, let's return a default (empty) dict to avoid crashing
+            return {}
+
+        with open(filepath, 'r') as f:
+            # Skip comment lines
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+
+                try:
+                    # Expecting format: "Criterion Name": Value
+                    # Find the first colon to split key and value
+                    parts = line.split(':', 1)
+                    if len(parts) != 2:
+                        print(f"Warning: Skipping malformed line in weights file: {line}")
+                        continue
+
+                    key_str = parts[0].strip()
+                    value_str = parts[1].strip()
+
+                    # Remove quotes from the key string if present
+                    if key_str.startswith('"') and key_str.endswith('"'):
+                        key = key_str[1:-1]
+                    else:
+                        key = key_str  # Or raise an error if quotes are mandatory
+
+                    weight = float(value_str)
+                    weights[key] = weight
+                except ValueError:
+                    print(f"Warning: Skipping line with invalid weight value: {line}")
+                except Exception as e:
+                    print(f"An unexpected error occurred while parsing line: {line} - {e}")
+        return weights
+
+
     def submit_form(self):
         print("--- Form Submitted ---")
         # Access the values from the input fields
@@ -296,13 +340,9 @@ class DronePortConfig(QWidget):
             "Noise level": noise_level,
             "Night Vision": night_vision, # Include Night Vision in the dictionary
             "Cargo": cargo
-            # Add other fields from the UI here if you add them later
         }
 
-        weights_gui = { # Not yet implemented in the GUI
-            "Payload Capacity": 0.7,
-            # Add weights for other features if fuzzy logic is extended
-        }
+        weights_gui = self.load_weights_from_file()
 
         res = drone_selector.get_top_drones(transform_user_input(user_input_from_ui), weights_gui)
         for drone in res:
@@ -338,9 +378,12 @@ def transform_user_input(user_input_gui):
     temp = loc["average_min_temp_C"]
     rtt = transmission_map.get(user_input_gui["Data Transmission"])[0]
     speed = transmission_map.get(user_input_gui["Data Transmission"])[1]
+    radAndHeigh = radius_map.get(user_input_gui["Port Size"], -1)
+    radius = radAndHeigh[0]
+    height = radAndHeigh[1]
     user_input = {
-        "Flight Radius": radius_map.get(user_input_gui["Port Size"][0], 0),
-        "Flight height": radius_map.get(user_input_gui["Port Size"][1], 0),
+        "Flight Radius": radius,
+        "Flight height": height,
         "Thermal/Night Camera": 0.0 if user_input_gui["Night Vision"] != "No" else 1.0,
         "Max wind resistance": wind,
         "Budgets options": user_input_gui["Budget (€)"],
@@ -348,7 +391,7 @@ def transform_user_input(user_input_gui):
         "ISO range": 25600 if user_input_gui["Night Vision"] == "Yes" else (
             6400 if user_input_gui["Night Vision"] == "Occasionally" else 3200),
         "Battery Life": user_input_gui["Battery Life (min)"],
-        "Payload Capacity": 1 if user_input_gui["Cargo"] == "No" else (
+        "Payload Capacity": 0 if user_input_gui["Cargo"] == "No" else (
             10 if user_input_gui["Cargo"] == "Low Weight" else 23),
         "Dimensions": user_input_gui["Dimensions (cm³)"],
         "Real-time data transmission": rtt,
