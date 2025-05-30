@@ -506,13 +506,7 @@ class ResultsWindow(QWidget):
                 score_label.setStyleSheet("font-size: 16px;")
                 drone_layout.addWidget(score_label)
 
-                # Display KNN and Detailed scores if available
-                knn_score = drone.get('_knn_score')
-                detailed_score = drone.get('_detailed_score')
-                if knn_score is not None and detailed_score is not None:
-                    partial_scores_label = QLabel(f"(KNN: {knn_score:.2f}, Detailed: {detailed_score:.2f})")
-                    partial_scores_label.setStyleSheet("font-size: 12px; color: #aabbcc;")
-                    drone_layout.addWidget(partial_scores_label)
+
 
                 price_val = drone.get('Price', 'N/A')
                 price_text = f"€{price_val:.2f}" if isinstance(price_val, (int, float)) else "N/A"
