@@ -20,6 +20,10 @@ This intelligent tool supports operators in both **routine missions** and **crit
 
 ---
 
+## 📽️ Demo
+[![Watch the video](https://img.youtube.com/vi/ONG52aVeTn0/maxresdefault.jpg)](https://www.youtube.com/watch?v=ONG52aVeTn0)
+---
+
 ## 👥 Authors & Collaborators
 
 This project is being developed by:
