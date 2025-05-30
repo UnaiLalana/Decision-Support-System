@@ -236,7 +236,7 @@ def compute_detailed_scores_and_explanations(drone_row, user_input_gui, weights_
 
 
 # --- Main Drone Selection Function ---
-def get_top_drones(user_input_gui, weights_gui, k=20, W_knn=0.6, W_detailed=0.4):
+def get_top_drones(user_input_gui, weights_gui, k=8, W_knn=0.6, W_detailed=0.4):
     df = pd.read_csv("drones_dataset.csv")
 
     for col in df.select_dtypes(include=np.number).columns:  # Round numeric columns
